@@ -8,6 +8,8 @@
 
 Sem dependências. Sem servidor. Sem downloads. Um arquivo `.html` e pronto.
 
+### ▶ [**Jogar agora no navegador**](https://volksec.github.io/lendas-do-brasil/)
+
 [![Sem dependências](https://img.shields.io/badge/depend%C3%AAncias-nenhuma-2ec98f?style=flat-square)](#tecnologia)
 [![Vanilla JS](https://img.shields.io/badge/vanilla-JS-ffd94a?style=flat-square)](#tecnologia)
 [![Arte procedural](https://img.shields.io/badge/arte-100%25%20procedural-c07bff?style=flat-square)](#arte-e-som-nascem-de-código)
@@ -142,8 +144,11 @@ Cerrado dos Ventos · Manguezal Sombrio · Serra dos Cristais · Cidade das Más
 
 ## Jogar agora
 
-**Opção rápida** — baixe [`dist/index.html`](dist/index.html) e abra com dois
-cliques. É um arquivo único de 419 KB, autocontido. Funciona offline.
+**No navegador, sem instalar nada:**
+### ▶ [volksec.github.io/lendas-do-brasil](https://volksec.github.io/lendas-do-brasil/)
+
+**Offline** — baixe [`dist/index.html`](dist/index.html) e abra com dois cliques.
+É um arquivo único de 419 KB, autocontido, que roda sem internet.
 
 **Opção de desenvolvimento** — clone e sirva localmente:
 
