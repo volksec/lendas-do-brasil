@@ -1134,7 +1134,7 @@
       UI.modal(t('credits'), el('p', { text: t('creditsText') }), [{ label: t('close') }]);
     }, 'big'));
     overlay.appendChild(bts);
-    overlay.appendChild(el('div', { class: 'menu-foot', text: t('landscapeHint') }));
+    // Sem aviso de orientação aqui: a dica aparece uma vez, em popup fechável.
     root.appendChild(overlay);
   };
 

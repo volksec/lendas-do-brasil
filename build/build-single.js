@@ -57,10 +57,15 @@ function main() {
   const css = read('styles.css');
   const html = read('index.html');
 
-  const title = (html.match(/<title>([^<]*)<\/title>/i) || [, 'Lendas do Brasil: Jornada Encantada'])[1];
-  const head = html.slice(html.indexOf('<head>'), html.indexOf('</head>'));
-  const metas = (head.match(/<meta[^>]*>/gi) || []).join('\n');
-  const icon = (head.match(/<link rel="icon"[^>]*>/i) || [''])[0];
+  // O <head> é preservado literalmente. Extrair tag a tag com regex é frágil:
+  // o favicon é um data URI de SVG e contém '>' dentro do atributo href, o que
+  // truncava a tag e engolia o <style> inteiro — o build saía sem CSS nenhum.
+  const headStart = html.indexOf('<head>') + '<head>'.length;
+  const headEnd = html.indexOf('</head>');
+  if (headStart < 6 || headEnd < 0) { console.error('[build] <head> não encontrado em index.html'); process.exit(1); }
+  let head = html.slice(headStart, headEnd);
+  // remove só a referência ao CSS externo — ele vai embutido logo abaixo
+  head = head.replace(/[ \t]*<link[^>]*rel=["']stylesheet["'][^>]*>\s*/gi, '');
 
   let js = '';
   let bytes = 0;
@@ -73,11 +78,7 @@ function main() {
   const out =
 `<!DOCTYPE html>
 <html lang="pt-BR">
-<head>
-<meta charset="utf-8">
-${metas.replace(/<meta charset="utf-8">\s*/i, '')}
-<title>${title}</title>
-${icon}
+<head>${head}
 <style>
 ${css}
 </style>

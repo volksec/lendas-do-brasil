@@ -182,8 +182,9 @@ node build/build-single.js
 | `M` · `F` | Mudo · Tela cheia |
 | `Tab` · `I` · `Q` · `B` · `C` | Heróis · Bolsa · Missões · Bestiário · Oficina |
 
-No celular tudo funciona por toque. O jogo sugere modo paisagem e avisa quando a
-tela é pequena demais.
+No celular tudo funciona por toque, **em qualquer orientação**. Na primeira vez
+aparece uma dica discreta sugerindo o modo paisagem — ela não bloqueia nada, some
+sozinha e tem um ✕ que a desliga de vez.
 
 ---
 
@@ -390,6 +391,8 @@ de arte e áudio estão documentados nos cabeçalhos dos próprios arquivos.
   vida (F, V, !, S, L, +, ^, v)
 - **Teclado**: toda tela tem atalho e todo botão é um `<button>` real
 - **Qualidade gráfica** em três níveis, para aparelhos modestos
+- **Nenhum aviso bloqueia a tela**: o jogo é jogável em retrato, e a sugestão de
+  orientação é apenas um popup fechável
 
 ---
 

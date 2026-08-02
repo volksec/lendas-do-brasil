@@ -146,7 +146,7 @@
       reducedMotion: false, screenShake: true, damageNumbers: true,
       highContrast: false, textScale: 1,
       battleSpeed: 1, autoProgress: true, repeatStage: false, autoUltimate: true,
-      maxOfflineHours: 12, autoSave: true
+      maxOfflineHours: 12, autoSave: true, hintDismissed: false
     };
   };
 

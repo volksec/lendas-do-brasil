@@ -6,7 +6,8 @@
 <meta name="description" content="Lendas do Brasil: Jornada Encantada — RPG idle de aventura inspirado livremente no folclore brasileiro.">
 <meta name="theme-color" content="#0d0b14">
 <title>Lendas do Brasil: Jornada Encantada</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230d0b14'/><path d='M8 2 L13 8 L8 14 L3 8 Z' fill='%232ec98f' stroke='%23ffd94a'/></svg>">
+
 <style>
 /* =============================================================
  * styles.css — interface retrô de RPG com usabilidade moderna.
@@ -402,13 +403,26 @@ input[type=range] { padding: 0; }
 .toast.out { opacity: 0; transition: opacity .35s; }
 @keyframes slidein { from { transform: translateX(20px); opacity: 0; } to { transform: none; opacity: 1; } }
 
-#size-warn { position: fixed; inset: 0; z-index: 100; display: none; align-items: center; justify-content: center; background: rgba(5,4,10,.92); }
-#size-warn.on { display: flex; }
-#size-warn.hint { background: rgba(5,4,10,.55); pointer-events: none; }
-#size-warn.hint .sw-box { background: rgba(20,16,32,.9); }
-.sw-box { text-align: center; padding: 1rem; border: 2px solid var(--gold-dark); border-radius: var(--radius); }
-.sw-icon { font-size: 2rem; }
-.sw-text { color: var(--gold); font-size: .8rem; margin-top: .4rem; max-width: 300px; }
+/* Dica de tela: discreta, não bloqueia nada e pode ser fechada. */
+#hint-pop {
+  position: fixed; left: 50%; bottom: 4.2rem; transform: translate(-50%, 16px);
+  display: flex; align-items: center; gap: .45rem; z-index: 70;
+  background: rgba(20,16,32,.95); border: 1px solid var(--gold-dark); border-radius: var(--radius);
+  padding: .35rem .4rem .35rem .55rem;
+  /* largura explícita: com left:50% e largura automática o popup só receberia
+     metade da viewport e o texto quebraria em quatro linhas */
+  width: min(92vw, 340px);
+  box-shadow: 0 4px 18px rgba(0,0,0,.55);
+  opacity: 0; transition: opacity .25s ease, transform .25s ease;
+}
+#hint-pop.on { opacity: 1; transform: translate(-50%, 0); }
+#hint-pop .hp-ic { font-size: .9rem; flex: 0 0 auto; }
+#hint-pop .hp-text { font-size: .66rem; color: var(--text); line-height: 1.35; }
+#hint-pop .hp-close {
+  flex: 0 0 auto; background: none; border: none; color: var(--dim);
+  font-family: var(--font); font-size: .8rem; cursor: pointer; padding: .1rem .25rem; border-radius: 3px;
+}
+#hint-pop .hp-close:hover { color: var(--gold); background: rgba(255,217,74,.12); }
 
 .daily-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: .3rem; }
 .dcell { background: #0f0c18; border: 1px solid var(--line); border-radius: var(--radius); padding: .3rem; font-size: .6rem; text-align: center; }
@@ -728,7 +742,8 @@ input[type=range] { padding: 0; }
       /* diversos */
       soon: 'Em breve', none: 'Nenhum', total: 'Total', chapter: 'Capítulo', story: 'História',
       secretFound: 'Segredo encontrado!', newHero: 'Novo herói disponível!', tapToStart: 'Toque para começar',
-      landscapeHint: 'Modo paisagem recomendado', screenTooSmall: 'Tela muito pequena — gire o aparelho ou aumente a janela.',
+      landscapeHint: 'Dica: no modo paisagem o combate fica mais confortável — mas dá para jogar assim mesmo.',
+      screenTooSmall: 'Dica: a tela está estreita. Girar o aparelho ou ampliar a janela ajuda, se você quiser.',
       controls: 'Controles', loading: 'Carregando…', worldMap: 'Mapa do Mundo', enter: 'Entrar',
       cleared: 'Concluído', current: 'Atual', regionLocked: 'Conclua a região anterior.',
       startBattle: 'Iniciar batalha', bestStage: 'Melhor estágio', stagesCleared: 'Estágios concluídos',
@@ -837,7 +852,8 @@ input[type=range] { padding: 0; }
 
       soon: 'Soon', none: 'None', total: 'Total', chapter: 'Chapter', story: 'Story',
       secretFound: 'Secret found!', newHero: 'New hero available!', tapToStart: 'Tap to start',
-      landscapeHint: 'Landscape mode recommended', screenTooSmall: 'Screen too small — rotate your device or enlarge the window.',
+      landscapeHint: 'Tip: landscape mode makes combat more comfortable — but it plays fine either way.',
+      screenTooSmall: 'Tip: the screen is quite narrow. Rotating or enlarging the window helps, if you like.',
       controls: 'Controls', loading: 'Loading…', worldMap: 'World Map', enter: 'Enter',
       cleared: 'Cleared', current: 'Current', regionLocked: 'Complete the previous region.',
       startBattle: 'Start battle', bestStage: 'Best stage', stagesCleared: 'Stages cleared',
@@ -4111,7 +4127,7 @@ input[type=range] { padding: 0; }
       reducedMotion: false, screenShake: true, damageNumbers: true,
       highContrast: false, textScale: 1,
       battleSpeed: 1, autoProgress: true, repeatStage: false, autoUltimate: true,
-      maxOfflineHours: 12, autoSave: true
+      maxOfflineHours: 12, autoSave: true, hintDismissed: false
     };
   };
 
@@ -7634,7 +7650,7 @@ input[type=range] { padding: 0; }
       UI.modal(t('credits'), el('p', { text: t('creditsText') }), [{ label: t('close') }]);
     }, 'big'));
     overlay.appendChild(bts);
-    overlay.appendChild(el('div', { class: 'menu-foot', text: t('landscapeHint') }));
+    // Sem aviso de orientação aqui: a dica aparece uma vez, em popup fechável.
     root.appendChild(overlay);
   };
 
@@ -7834,21 +7850,52 @@ input[type=range] { padding: 0; }
     if (G.render && G.render.resize) G.render.resize();
   };
 
-  /* ---------------- aviso de tela pequena ---------------- */
-  function checkScreenSize() {
-    let warn = document.getElementById('size-warn');
-    const small = window.innerWidth < 380 || window.innerHeight < 320;
-    const portrait = window.innerHeight > window.innerWidth && window.innerWidth < 760;
-    if (!warn) {
-      warn = document.createElement('div');
-      warn.id = 'size-warn';
-      warn.innerHTML = '<div class="sw-box"><div class="sw-icon">📱↻</div><div class="sw-text"></div></div>';
-      document.body.appendChild(warn);
+  /* ---------------- dica de tela (opcional e dispensável) ----------------
+   * O jogo é totalmente jogável em retrato e em telas pequenas. Isto é só
+   * uma sugestão: aparece uma vez, não bloqueia nada e pode ser fechada
+   * para sempre.
+   * -------------------------------------------------------------------- */
+  let hintTimer = null, hintShown = false;
+
+  function dismissHint(permanent) {
+    const pop = document.getElementById('hint-pop');
+    if (pop) { pop.classList.remove('on'); setTimeout(function () { pop.remove(); }, 300); }
+    if (hintTimer) { clearTimeout(hintTimer); hintTimer = null; }
+    if (permanent) {
+      G.game.settings.hintDismissed = true;
+      G.save.saveSettings(G.game.settings);
     }
-    const txt = warn.querySelector('.sw-text');
-    if (small) { txt.textContent = G.t('screenTooSmall'); warn.classList.add('on'); warn.classList.remove('hint'); }
-    else if (portrait) { txt.textContent = G.t('landscapeHint'); warn.classList.add('on', 'hint'); }
-    else { txt.textContent = ''; warn.classList.remove('on', 'hint'); }
+  }
+  M.dismissHint = dismissHint;
+  M.showHint = showHint;
+
+  function showHint(text, force) {
+    if ((hintShown && !force) || G.game.settings.hintDismissed) return;
+    if (document.getElementById('hint-pop')) return;
+    hintShown = true;
+    const pop = document.createElement('div');
+    pop.id = 'hint-pop';
+    const ic = document.createElement('span');
+    ic.className = 'hp-ic'; ic.textContent = '📱';
+    const tx = document.createElement('span');
+    tx.className = 'hp-text'; tx.textContent = text;
+    const close = document.createElement('button');
+    close.className = 'hp-close'; close.textContent = '✕';
+    close.title = G.t('close');
+    close.setAttribute('aria-label', G.t('close'));
+    close.addEventListener('click', function () { G.audio.play('back'); dismissHint(true); });
+    pop.appendChild(ic); pop.appendChild(tx); pop.appendChild(close);
+    document.body.appendChild(pop);
+    requestAnimationFrame(function () { pop.classList.add('on'); });
+    hintTimer = setTimeout(function () { dismissHint(false); }, 9000);
+  }
+
+  function checkScreenSize() {
+    // Nada aqui bloqueia o jogo — só sugere, uma única vez por sessão.
+    const tiny = window.innerWidth < 380 || window.innerHeight < 320;
+    const portrait = window.innerHeight > window.innerWidth && window.innerWidth < 760;
+    if (tiny) showHint(G.t('screenTooSmall'));
+    else if (portrait) showHint(G.t('landscapeHint'));
   }
 
   /* ---------------- start ---------------- */

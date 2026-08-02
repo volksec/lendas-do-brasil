@@ -188,21 +188,52 @@
     if (G.render && G.render.resize) G.render.resize();
   };
 
-  /* ---------------- aviso de tela pequena ---------------- */
-  function checkScreenSize() {
-    let warn = document.getElementById('size-warn');
-    const small = window.innerWidth < 380 || window.innerHeight < 320;
-    const portrait = window.innerHeight > window.innerWidth && window.innerWidth < 760;
-    if (!warn) {
-      warn = document.createElement('div');
-      warn.id = 'size-warn';
-      warn.innerHTML = '<div class="sw-box"><div class="sw-icon">📱↻</div><div class="sw-text"></div></div>';
-      document.body.appendChild(warn);
+  /* ---------------- dica de tela (opcional e dispensável) ----------------
+   * O jogo é totalmente jogável em retrato e em telas pequenas. Isto é só
+   * uma sugestão: aparece uma vez, não bloqueia nada e pode ser fechada
+   * para sempre.
+   * -------------------------------------------------------------------- */
+  let hintTimer = null, hintShown = false;
+
+  function dismissHint(permanent) {
+    const pop = document.getElementById('hint-pop');
+    if (pop) { pop.classList.remove('on'); setTimeout(function () { pop.remove(); }, 300); }
+    if (hintTimer) { clearTimeout(hintTimer); hintTimer = null; }
+    if (permanent) {
+      G.game.settings.hintDismissed = true;
+      G.save.saveSettings(G.game.settings);
     }
-    const txt = warn.querySelector('.sw-text');
-    if (small) { txt.textContent = G.t('screenTooSmall'); warn.classList.add('on'); warn.classList.remove('hint'); }
-    else if (portrait) { txt.textContent = G.t('landscapeHint'); warn.classList.add('on', 'hint'); }
-    else { txt.textContent = ''; warn.classList.remove('on', 'hint'); }
+  }
+  M.dismissHint = dismissHint;
+  M.showHint = showHint;
+
+  function showHint(text, force) {
+    if ((hintShown && !force) || G.game.settings.hintDismissed) return;
+    if (document.getElementById('hint-pop')) return;
+    hintShown = true;
+    const pop = document.createElement('div');
+    pop.id = 'hint-pop';
+    const ic = document.createElement('span');
+    ic.className = 'hp-ic'; ic.textContent = '📱';
+    const tx = document.createElement('span');
+    tx.className = 'hp-text'; tx.textContent = text;
+    const close = document.createElement('button');
+    close.className = 'hp-close'; close.textContent = '✕';
+    close.title = G.t('close');
+    close.setAttribute('aria-label', G.t('close'));
+    close.addEventListener('click', function () { G.audio.play('back'); dismissHint(true); });
+    pop.appendChild(ic); pop.appendChild(tx); pop.appendChild(close);
+    document.body.appendChild(pop);
+    requestAnimationFrame(function () { pop.classList.add('on'); });
+    hintTimer = setTimeout(function () { dismissHint(false); }, 9000);
+  }
+
+  function checkScreenSize() {
+    // Nada aqui bloqueia o jogo — só sugere, uma única vez por sessão.
+    const tiny = window.innerWidth < 380 || window.innerHeight < 320;
+    const portrait = window.innerHeight > window.innerWidth && window.innerWidth < 760;
+    if (tiny) showHint(G.t('screenTooSmall'));
+    else if (portrait) showHint(G.t('landscapeHint'));
   }
 
   /* ---------------- start ---------------- */

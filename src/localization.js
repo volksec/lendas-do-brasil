@@ -128,7 +128,8 @@
       /* diversos */
       soon: 'Em breve', none: 'Nenhum', total: 'Total', chapter: 'Capítulo', story: 'História',
       secretFound: 'Segredo encontrado!', newHero: 'Novo herói disponível!', tapToStart: 'Toque para começar',
-      landscapeHint: 'Modo paisagem recomendado', screenTooSmall: 'Tela muito pequena — gire o aparelho ou aumente a janela.',
+      landscapeHint: 'Dica: no modo paisagem o combate fica mais confortável — mas dá para jogar assim mesmo.',
+      screenTooSmall: 'Dica: a tela está estreita. Girar o aparelho ou ampliar a janela ajuda, se você quiser.',
       controls: 'Controles', loading: 'Carregando…', worldMap: 'Mapa do Mundo', enter: 'Entrar',
       cleared: 'Concluído', current: 'Atual', regionLocked: 'Conclua a região anterior.',
       startBattle: 'Iniciar batalha', bestStage: 'Melhor estágio', stagesCleared: 'Estágios concluídos',
@@ -237,7 +238,8 @@
 
       soon: 'Soon', none: 'None', total: 'Total', chapter: 'Chapter', story: 'Story',
       secretFound: 'Secret found!', newHero: 'New hero available!', tapToStart: 'Tap to start',
-      landscapeHint: 'Landscape mode recommended', screenTooSmall: 'Screen too small — rotate your device or enlarge the window.',
+      landscapeHint: 'Tip: landscape mode makes combat more comfortable — but it plays fine either way.',
+      screenTooSmall: 'Tip: the screen is quite narrow. Rotating or enlarging the window helps, if you like.',
       controls: 'Controls', loading: 'Loading…', worldMap: 'World Map', enter: 'Enter',
       cleared: 'Cleared', current: 'Current', regionLocked: 'Complete the previous region.',
       startBattle: 'Start battle', bestStage: 'Best stage', stagesCleared: 'Stages cleared',
