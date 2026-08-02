@@ -121,6 +121,12 @@
       saveInvalid: 'Save inválido ou corrompido.', deleteSave: 'Apagar progresso',
       autoSave: 'Salvamento automático', maxOfflineHours: 'Máximo de horas offline', saveNow: 'Salvar agora',
       saved: 'Progresso salvo.',
+      saveWorking: 'O progresso está sendo salvo neste navegador.',
+      lastSave: 'Último salvamento', justNow: 'agora mesmo', ago: 'atrás',
+      noSaveYet: 'Nada salvo ainda — jogue um pouco ou toque em Salvar agora.',
+      saveErrorQuota: 'Não consegui salvar: o armazenamento do navegador está cheio. Exporte seu save em Configurações antes de fechar.',
+      saveErrorBlocked: 'Não consegui salvar: este navegador está bloqueando o armazenamento (aba anônima?). Seu progresso será perdido ao fechar — exporte o save em Configurações.',
+      storageWarning: 'Atenção: este navegador não permite salvar. O progresso vai se perder ao fechar a aba. Use uma janela normal ou exporte o save.',
 
       /* diárias */
       dailyReward: 'Recompensa Diária', day: 'Dia', dailyClaimed: 'Já coletado hoje', comeBack: 'Volte amanhã!',
@@ -233,6 +239,12 @@
       saveInvalid: 'Invalid or corrupted save.', deleteSave: 'Delete progress',
       autoSave: 'Auto save', maxOfflineHours: 'Max offline hours', saveNow: 'Save now',
       saved: 'Progress saved.',
+      saveWorking: 'Progress is being saved in this browser.',
+      lastSave: 'Last save', justNow: 'just now', ago: 'ago',
+      noSaveYet: 'Nothing saved yet — play a bit or tap Save now.',
+      saveErrorQuota: 'Could not save: browser storage is full. Export your save in Settings before closing.',
+      saveErrorBlocked: 'Could not save: this browser is blocking storage (private window?). Progress will be lost on close — export your save in Settings.',
+      storageWarning: 'Heads up: this browser will not let the game save. Progress is lost when you close the tab. Use a normal window or export your save.',
 
       dailyReward: 'Daily Reward', day: 'Day', dailyClaimed: 'Already claimed today', comeBack: 'Come back tomorrow!',
 

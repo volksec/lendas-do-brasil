@@ -111,6 +111,9 @@
 
     G.game.events.on('resources', updateTopbar);
     G.game.events.on('toast', (d) => UI.toast(d.text, d.kind));
+    G.game.events.on('saveError', (reason) => {
+      UI.toast(t(reason === 'quota' ? 'saveErrorQuota' : 'saveErrorBlocked'), 'warn');
+    });
     G.game.events.on('inventory', () => { if (UI.current === 'bag') UI.show('bag'); });
     G.game.events.on('heroes', () => { if (UI.current === 'heroes' || UI.current === 'party') UI.show(UI.current); });
     G.game.events.on('quests', () => { if (UI.current === 'quests') UI.show('quests'); });
@@ -1020,7 +1023,14 @@
 
     // save
     const sp = el('div', { class: 'panel' });
-    sp.appendChild(btn(t('saveNow'), () => { G.game.saveNow(); UI.toast(t('saved'), 'ok'); }, 'small'));
+    const status = el('div', { class: 'save-status' });
+    sp.appendChild(status);
+    refreshSaveStatus(status);
+    sp.appendChild(btn(t('saveNow'), () => {
+      const ok = G.game.saveNow();
+      if (ok) UI.toast(t('saved'), 'ok');
+      refreshSaveStatus(status);
+    }, 'small'));
     sp.appendChild(btn(t('exportSave'), () => {
       const str = G.save.exportString(G.game.serialize());
       const ta = el('textarea', { class: 'save-area', readonly: 'readonly' });
@@ -1071,6 +1081,25 @@
 
   function row(label, node) {
     return el('div', { class: 'srow' }, [el('span', { class: 'slabel', text: label }), node]);
+  }
+
+  /** Mostra, de forma verificável, se o progresso está mesmo sendo gravado. */
+  function refreshSaveStatus(node) {
+    U.clear(node);
+    if (!G.save.available) {
+      node.className = 'save-status bad';
+      node.appendChild(el('div', { text: '⚠ ' + t('storageWarning') }));
+      return;
+    }
+    const info = G.save.lastSaveInfo();
+    node.className = 'save-status ' + (info ? 'ok' : 'warn');
+    if (info) {
+      const secs = Math.max(0, Math.round((Date.now() - info.at) / 1000));
+      node.appendChild(el('div', { text: '✔ ' + t('saveWorking') }));
+      node.appendChild(el('div', { class: 'dim', text: t('lastSave') + ': ' + (secs < 5 ? t('justNow') : U.time(secs) + ' ' + t('ago')) + ' · ' + (info.size / 1024).toFixed(1) + ' KB' }));
+    } else {
+      node.appendChild(el('div', { text: t('noSaveYet') }));
+    }
   }
 
   /* ==========================================================

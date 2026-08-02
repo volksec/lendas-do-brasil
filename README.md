@@ -160,15 +160,48 @@ python -m http.server 8123
 
 E abra `http://localhost:8123`.
 
-> Alguns navegadores bloqueiam `localStorage` em `file://`. O jogo detecta isso e
-> continua funcionando com armazenamento em memória, mas para salvar o progresso
-> de verdade, use um servidor local ou o arquivo único.
+> Alguns navegadores bloqueiam `localStorage` em `file://`. O jogo detecta isso,
+> avisa na tela e continua funcionando com armazenamento em memória — mas para
+> salvar de verdade, use um servidor local ou o arquivo único.
 
 **Gerar o arquivo único você mesmo:**
 
 ```bash
 node build/build-single.js
 ```
+
+---
+
+## Seu progresso não se perde
+
+O jogo grava em `localStorage` e o salvamento tem várias redes de segurança:
+
+| Quando | O que acontece |
+|---|---|
+| A cada 20 segundos de jogo | Gravação periódica automática |
+| Marcos importantes | Grava ~1,5 s depois: novo estágio recorde, chefe derrotado, herói recrutado, compra de melhoria, renascimento, item criado, recompensa coletada |
+| Trocar de aba ou minimizar | `visibilitychange` → grava na hora |
+| Fechar a aba ou o navegador | `beforeunload` **e** `pagehide` → grava na hora |
+| Celular fechando/congelando a aba | `pagehide` e `freeze` (os únicos confiáveis no iOS) |
+
+Rajadas de eventos viram uma gravação só, para não escrever a cada quadro.
+
+Além disso:
+
+- **Backup automático**: a gravação anterior é mantida em separado. Se o save
+  principal corromper, o jogo carrega o backup sozinho.
+- **Save versionado** com migração tolerante — saves antigos continuam abrindo.
+- **Cota cheia**: o jogo descarta o backup para liberar espaço e tenta de novo,
+  em vez de simplesmente falhar.
+- **Falha visível**: se ainda assim não der para gravar (aba anônima, cota
+  estourada), aparece um aviso pedindo para exportar o save. Nunca falha calado.
+- **Indicador em Configurações**: mostra se o salvamento está funcionando, quando
+  foi a última gravação e o tamanho dela.
+- **Exportar/importar** em Configurações, para levar o progresso de um navegador
+  para outro ou guardar uma cópia.
+
+O único caso em que o progresso realmente se perde é limpar os dados do site no
+navegador, ou jogar em aba anônima ignorando o aviso.
 
 ---
 

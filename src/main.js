@@ -56,6 +56,12 @@
     bindKeys();
     bindWindow();
     checkScreenSize();
+
+    // Armazenamento bloqueado (aba anônima estrita): avisa de forma visível,
+    // porque nesse caso o jogador perde tudo ao fechar sem saber.
+    if (!G.save.available) {
+      setTimeout(function () { G.ui.toast(G.t('storageWarning'), 'warn'); }, 1800);
+    }
   };
   function res_delay() { return 1200; }
 
@@ -163,7 +169,13 @@
         playRegionMusic();
       }
     });
+    // Três redes de segurança, porque nenhuma sozinha cobre todos os casos:
+    //  - beforeunload: desktop, ao fechar a aba ou navegar para fora
+    //  - pagehide: o único confiável no iOS/Safari e no bfcache do celular
+    //  - freeze: quando o navegador congela a aba para poupar bateria
     window.addEventListener('beforeunload', function () { G.game.saveNow(); });
+    window.addEventListener('pagehide', function () { G.game.saveNow(); });
+    document.addEventListener('freeze', function () { G.game.saveNow(); });
     // impede rolagem indesejada durante o jogo
     document.body.addEventListener('touchmove', function (e) {
       if (e.target.closest && e.target.closest('.scrollable, .screen, .modal-body')) return;

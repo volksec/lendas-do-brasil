@@ -547,6 +547,7 @@
     G.audio.play('levelup');
     Game.events.emit('heroes'); Game.events.emit('resources');
     Game.events.emit('toast', { text: G.t('newHero') + ' ' + G.tn(G.heroById[heroId]), kind: 'ok' });
+    Game.requestSave();                   // herói recrutado
     return true;
   };
 
@@ -719,6 +720,7 @@
       const bdef = G.enemyById[stage.enemyPool[0]];
       if (bdef && bdef.drops) bdef.drops.forEach((m) => { Game.addMat(m, 1); gained.mats[m] = (gained.mats[m] || 0) + 1; });
       s.tokens += B.rewards.tokenPerBoss; gained.tokens = B.rewards.tokenPerBoss;
+      Game.requestSave();                 // chefe derrotado
       if (stageIdx >= s.maxStage) { s.gems += B.rewards.gemPerBossFirstClear; gained.gems = B.rewards.gemPerBossFirstClear; }
     }
     // equipamento
@@ -744,6 +746,7 @@
       s.stats.maxStage = s.maxStage;
       trackQuest('stage', null, s.maxStage, true);
       Game.checkUnlocks();
+      Game.requestSave();                 // novo recorde de estágio
     }
     if (s.boosts.atkStages > 0) s.boosts.atkStages--;
 
@@ -808,6 +811,7 @@
     if (r.mats) for (const m in r.mats) Game.addMat(m, r.mats[m]);
     G.audio.play('coin');
     Game.events.emit('resources'); Game.events.emit('quests');
+    Game.requestSave();                   // recompensa de missão coletada
     return true;
   };
 
@@ -864,6 +868,7 @@
     if (rw.mats) for (const m in rw.mats) Game.addMat(m, rw.mats[m]);
     G.audio.play('coin');
     Game.events.emit('resources');
+    Game.requestSave();                   // recompensa diária coletada
     return rw;
   };
 
@@ -920,6 +925,7 @@
     G.audio.play('craft');
     Game.events.emit('resources'); Game.events.emit('inventory');
     Game.events.emit('toast', { text: G.t('crafted'), kind: 'ok' });
+    Game.requestSave();                   // item criado
     return true;
   };
 
@@ -1023,6 +1029,7 @@
     Game.checkAchievements();
     G.audio.play('secret');
     Game.events.emit('state'); Game.events.emit('resources'); Game.events.emit('heroes');
+    Game.saveNow();                       // renascimento: grava na hora
     return gain;
   };
 
@@ -1042,6 +1049,7 @@
     s.prestigeUpgrades[id] = lv + 1;
     G.audio.play('levelup');
     Game.events.emit('resources'); Game.events.emit('prestige');
+    Game.requestSave();                   // compra com essência
     return true;
   };
 
@@ -1061,6 +1069,7 @@
     s.idleUpgrades[id] = lv + 1;
     G.audio.play('levelup');
     Game.events.emit('resources'); Game.events.emit('idle');
+    Game.requestSave();                   // melhoria de ociosidade
     return true;
   };
 
@@ -1137,11 +1146,38 @@
     s.lastSeen = Date.now();
     return s;
   };
+  let lastSaveWarn = 0;
+  let saveDebounce = null;
+
   Game.saveNow = function () {
     if (!Game.state) return false;
+    if (saveDebounce) { clearTimeout(saveDebounce); saveDebounce = null; }
     const ok = G.save.write(Game.serialize());
     G.save.saveSettings(Game.settings);
-    if (ok) Game.events.emit('saved');
+    if (ok) {
+      Game.events.emit('saved');
+    } else {
+      // Falha silenciosa é o pior caso possível: o jogador segue jogando
+      // achando que está tudo salvo. Avisa, no máximo uma vez por minuto.
+      const now = Date.now();
+      if (now - lastSaveWarn > 60000) {
+        lastSaveWarn = now;
+        Game.events.emit('saveError', G.save.lastError || 'blocked');
+      }
+    }
     return ok;
+  };
+
+  /**
+   * Pede uma gravação logo após um marco importante (novo estágio recorde,
+   * chefe derrotado, compra, renascimento). Agrupa rajadas de eventos numa
+   * gravação só, para não escrever no localStorage a cada quadro.
+   */
+  Game.requestSave = function () {
+    if (saveDebounce || !Game.state) return;
+    saveDebounce = setTimeout(function () {
+      saveDebounce = null;
+      Game.saveNow();
+    }, 1500);
   };
 })();

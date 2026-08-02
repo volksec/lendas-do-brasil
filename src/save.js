@@ -13,6 +13,11 @@
   const BACKUP_KEY = 'ldb_save_backup';
   S.VERSION = 3;
 
+  /** true se o navegador realmente persiste dados (falso em aba anônima estrita). */
+  S.available = true;
+  /** null | 'blocked' | 'quota' — último motivo de falha de gravação. */
+  S.lastError = null;
+
   function safeLS() {
     try {
       const t = '__ldb_test__';
@@ -20,7 +25,9 @@
       return localStorage;
     } catch (e) {
       console.warn('[LDB] localStorage indisponível — progresso não será salvo.');
-      // fallback em memória para não quebrar o jogo
+      S.available = false;
+      S.lastError = 'blocked';
+      // fallback em memória para não quebrar o jogo (perde tudo ao fechar)
       const mem = {};
       return { getItem: (k) => (k in mem ? mem[k] : null), setItem: (k, v) => { mem[k] = String(v); }, removeItem: (k) => { delete mem[k]; } };
     }
@@ -30,6 +37,7 @@
   S.hasSave = function () { return !!LS.getItem(KEY); };
 
   S.write = function (state) {
+    if (!S.available) { S.lastError = 'blocked'; return false; }
     try {
       const payload = { v: S.VERSION, t: Date.now(), d: state };
       const str = JSON.stringify(payload);
@@ -37,8 +45,22 @@
       const prev = LS.getItem(KEY);
       if (prev) LS.setItem(BACKUP_KEY, prev);
       LS.setItem(KEY, str);
+      S.lastError = null;
       return true;
     } catch (e) {
+      // Cota estourada: descarta o backup para liberar espaço e tenta de novo.
+      // É melhor perder o backup do que perder o save principal.
+      const quota = /quota|exceed/i.test(e.name + ' ' + e.message);
+      if (quota) {
+        try {
+          LS.removeItem(BACKUP_KEY);
+          LS.setItem(KEY, JSON.stringify({ v: S.VERSION, t: Date.now(), d: state }));
+          S.lastError = null;
+          console.warn('[LDB] cota apertada — backup descartado para salvar o progresso.');
+          return true;
+        } catch (e2) { /* segue para o erro abaixo */ }
+      }
+      S.lastError = quota ? 'quota' : 'blocked';
       console.error('[LDB] falha ao salvar', e);
       return false;
     }
@@ -103,6 +125,16 @@
     return data;
   };
   function num(v, d) { return typeof v === 'number' && isFinite(v) ? v : d; }
+
+  /** Data e tamanho da última gravação, para exibir na interface. */
+  S.lastSaveInfo = function () {
+    try {
+      const raw = LS.getItem(KEY);
+      if (!raw) return null;
+      const obj = JSON.parse(raw);
+      return { at: obj.t || 0, size: raw.length };
+    } catch (e) { return null; }
+  };
 
   S.wipe = function () {
     LS.removeItem(KEY);

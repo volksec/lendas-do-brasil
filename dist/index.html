@@ -144,6 +144,10 @@ select, input[type=range], textarea {
 }
 input[type=range] { padding: 0; }
 .save-area { width: 100%; height: 120px; resize: vertical; }
+.save-status { font-size: .7rem; border-left: 3px solid var(--ok); padding: .25rem .5rem; background: #0f0c18; border-radius: 3px; }
+.save-status.ok { border-left-color: var(--ok); }
+.save-status.warn { border-left-color: var(--gold-dark); }
+.save-status.bad { border-left-color: var(--danger); color: var(--warn); }
 .srow { display: flex; align-items: center; justify-content: space-between; gap: .6rem; }
 .slabel { font-size: .74rem; }
 
@@ -735,6 +739,12 @@ input[type=range] { padding: 0; }
       saveInvalid: 'Save inválido ou corrompido.', deleteSave: 'Apagar progresso',
       autoSave: 'Salvamento automático', maxOfflineHours: 'Máximo de horas offline', saveNow: 'Salvar agora',
       saved: 'Progresso salvo.',
+      saveWorking: 'O progresso está sendo salvo neste navegador.',
+      lastSave: 'Último salvamento', justNow: 'agora mesmo', ago: 'atrás',
+      noSaveYet: 'Nada salvo ainda — jogue um pouco ou toque em Salvar agora.',
+      saveErrorQuota: 'Não consegui salvar: o armazenamento do navegador está cheio. Exporte seu save em Configurações antes de fechar.',
+      saveErrorBlocked: 'Não consegui salvar: este navegador está bloqueando o armazenamento (aba anônima?). Seu progresso será perdido ao fechar — exporte o save em Configurações.',
+      storageWarning: 'Atenção: este navegador não permite salvar. O progresso vai se perder ao fechar a aba. Use uma janela normal ou exporte o save.',
 
       /* diárias */
       dailyReward: 'Recompensa Diária', day: 'Dia', dailyClaimed: 'Já coletado hoje', comeBack: 'Volte amanhã!',
@@ -847,6 +857,12 @@ input[type=range] { padding: 0; }
       saveInvalid: 'Invalid or corrupted save.', deleteSave: 'Delete progress',
       autoSave: 'Auto save', maxOfflineHours: 'Max offline hours', saveNow: 'Save now',
       saved: 'Progress saved.',
+      saveWorking: 'Progress is being saved in this browser.',
+      lastSave: 'Last save', justNow: 'just now', ago: 'ago',
+      noSaveYet: 'Nothing saved yet — play a bit or tap Save now.',
+      saveErrorQuota: 'Could not save: browser storage is full. Export your save in Settings before closing.',
+      saveErrorBlocked: 'Could not save: this browser is blocking storage (private window?). Progress will be lost on close — export your save in Settings.',
+      storageWarning: 'Heads up: this browser will not let the game save. Progress is lost when you close the tab. Use a normal window or export your save.',
 
       dailyReward: 'Daily Reward', day: 'Day', dailyClaimed: 'Already claimed today', comeBack: 'Come back tomorrow!',
 
@@ -3994,6 +4010,11 @@ input[type=range] { padding: 0; }
   const BACKUP_KEY = 'ldb_save_backup';
   S.VERSION = 3;
 
+  /** true se o navegador realmente persiste dados (falso em aba anônima estrita). */
+  S.available = true;
+  /** null | 'blocked' | 'quota' — último motivo de falha de gravação. */
+  S.lastError = null;
+
   function safeLS() {
     try {
       const t = '__ldb_test__';
@@ -4001,7 +4022,9 @@ input[type=range] { padding: 0; }
       return localStorage;
     } catch (e) {
       console.warn('[LDB] localStorage indisponível — progresso não será salvo.');
-      // fallback em memória para não quebrar o jogo
+      S.available = false;
+      S.lastError = 'blocked';
+      // fallback em memória para não quebrar o jogo (perde tudo ao fechar)
       const mem = {};
       return { getItem: (k) => (k in mem ? mem[k] : null), setItem: (k, v) => { mem[k] = String(v); }, removeItem: (k) => { delete mem[k]; } };
     }
@@ -4011,6 +4034,7 @@ input[type=range] { padding: 0; }
   S.hasSave = function () { return !!LS.getItem(KEY); };
 
   S.write = function (state) {
+    if (!S.available) { S.lastError = 'blocked'; return false; }
     try {
       const payload = { v: S.VERSION, t: Date.now(), d: state };
       const str = JSON.stringify(payload);
@@ -4018,8 +4042,22 @@ input[type=range] { padding: 0; }
       const prev = LS.getItem(KEY);
       if (prev) LS.setItem(BACKUP_KEY, prev);
       LS.setItem(KEY, str);
+      S.lastError = null;
       return true;
     } catch (e) {
+      // Cota estourada: descarta o backup para liberar espaço e tenta de novo.
+      // É melhor perder o backup do que perder o save principal.
+      const quota = /quota|exceed/i.test(e.name + ' ' + e.message);
+      if (quota) {
+        try {
+          LS.removeItem(BACKUP_KEY);
+          LS.setItem(KEY, JSON.stringify({ v: S.VERSION, t: Date.now(), d: state }));
+          S.lastError = null;
+          console.warn('[LDB] cota apertada — backup descartado para salvar o progresso.');
+          return true;
+        } catch (e2) { /* segue para o erro abaixo */ }
+      }
+      S.lastError = quota ? 'quota' : 'blocked';
       console.error('[LDB] falha ao salvar', e);
       return false;
     }
@@ -4084,6 +4122,16 @@ input[type=range] { padding: 0; }
     return data;
   };
   function num(v, d) { return typeof v === 'number' && isFinite(v) ? v : d; }
+
+  /** Data e tamanho da última gravação, para exibir na interface. */
+  S.lastSaveInfo = function () {
+    try {
+      const raw = LS.getItem(KEY);
+      if (!raw) return null;
+      const obj = JSON.parse(raw);
+      return { at: obj.t || 0, size: raw.length };
+    } catch (e) { return null; }
+  };
 
   S.wipe = function () {
     LS.removeItem(KEY);
@@ -5478,6 +5526,7 @@ input[type=range] { padding: 0; }
     G.audio.play('levelup');
     Game.events.emit('heroes'); Game.events.emit('resources');
     Game.events.emit('toast', { text: G.t('newHero') + ' ' + G.tn(G.heroById[heroId]), kind: 'ok' });
+    Game.requestSave();                   // herói recrutado
     return true;
   };
 
@@ -5650,6 +5699,7 @@ input[type=range] { padding: 0; }
       const bdef = G.enemyById[stage.enemyPool[0]];
       if (bdef && bdef.drops) bdef.drops.forEach((m) => { Game.addMat(m, 1); gained.mats[m] = (gained.mats[m] || 0) + 1; });
       s.tokens += B.rewards.tokenPerBoss; gained.tokens = B.rewards.tokenPerBoss;
+      Game.requestSave();                 // chefe derrotado
       if (stageIdx >= s.maxStage) { s.gems += B.rewards.gemPerBossFirstClear; gained.gems = B.rewards.gemPerBossFirstClear; }
     }
     // equipamento
@@ -5675,6 +5725,7 @@ input[type=range] { padding: 0; }
       s.stats.maxStage = s.maxStage;
       trackQuest('stage', null, s.maxStage, true);
       Game.checkUnlocks();
+      Game.requestSave();                 // novo recorde de estágio
     }
     if (s.boosts.atkStages > 0) s.boosts.atkStages--;
 
@@ -5739,6 +5790,7 @@ input[type=range] { padding: 0; }
     if (r.mats) for (const m in r.mats) Game.addMat(m, r.mats[m]);
     G.audio.play('coin');
     Game.events.emit('resources'); Game.events.emit('quests');
+    Game.requestSave();                   // recompensa de missão coletada
     return true;
   };
 
@@ -5795,6 +5847,7 @@ input[type=range] { padding: 0; }
     if (rw.mats) for (const m in rw.mats) Game.addMat(m, rw.mats[m]);
     G.audio.play('coin');
     Game.events.emit('resources');
+    Game.requestSave();                   // recompensa diária coletada
     return rw;
   };
 
@@ -5851,6 +5904,7 @@ input[type=range] { padding: 0; }
     G.audio.play('craft');
     Game.events.emit('resources'); Game.events.emit('inventory');
     Game.events.emit('toast', { text: G.t('crafted'), kind: 'ok' });
+    Game.requestSave();                   // item criado
     return true;
   };
 
@@ -5954,6 +6008,7 @@ input[type=range] { padding: 0; }
     Game.checkAchievements();
     G.audio.play('secret');
     Game.events.emit('state'); Game.events.emit('resources'); Game.events.emit('heroes');
+    Game.saveNow();                       // renascimento: grava na hora
     return gain;
   };
 
@@ -5973,6 +6028,7 @@ input[type=range] { padding: 0; }
     s.prestigeUpgrades[id] = lv + 1;
     G.audio.play('levelup');
     Game.events.emit('resources'); Game.events.emit('prestige');
+    Game.requestSave();                   // compra com essência
     return true;
   };
 
@@ -5992,6 +6048,7 @@ input[type=range] { padding: 0; }
     s.idleUpgrades[id] = lv + 1;
     G.audio.play('levelup');
     Game.events.emit('resources'); Game.events.emit('idle');
+    Game.requestSave();                   // melhoria de ociosidade
     return true;
   };
 
@@ -6068,12 +6125,39 @@ input[type=range] { padding: 0; }
     s.lastSeen = Date.now();
     return s;
   };
+  let lastSaveWarn = 0;
+  let saveDebounce = null;
+
   Game.saveNow = function () {
     if (!Game.state) return false;
+    if (saveDebounce) { clearTimeout(saveDebounce); saveDebounce = null; }
     const ok = G.save.write(Game.serialize());
     G.save.saveSettings(Game.settings);
-    if (ok) Game.events.emit('saved');
+    if (ok) {
+      Game.events.emit('saved');
+    } else {
+      // Falha silenciosa é o pior caso possível: o jogador segue jogando
+      // achando que está tudo salvo. Avisa, no máximo uma vez por minuto.
+      const now = Date.now();
+      if (now - lastSaveWarn > 60000) {
+        lastSaveWarn = now;
+        Game.events.emit('saveError', G.save.lastError || 'blocked');
+      }
+    }
     return ok;
+  };
+
+  /**
+   * Pede uma gravação logo após um marco importante (novo estágio recorde,
+   * chefe derrotado, compra, renascimento). Agrupa rajadas de eventos numa
+   * gravação só, para não escrever no localStorage a cada quadro.
+   */
+  Game.requestSave = function () {
+    if (saveDebounce || !Game.state) return;
+    saveDebounce = setTimeout(function () {
+      saveDebounce = null;
+      Game.saveNow();
+    }, 1500);
   };
 })();
 
@@ -6627,6 +6711,9 @@ input[type=range] { padding: 0; }
 
     G.game.events.on('resources', updateTopbar);
     G.game.events.on('toast', (d) => UI.toast(d.text, d.kind));
+    G.game.events.on('saveError', (reason) => {
+      UI.toast(t(reason === 'quota' ? 'saveErrorQuota' : 'saveErrorBlocked'), 'warn');
+    });
     G.game.events.on('inventory', () => { if (UI.current === 'bag') UI.show('bag'); });
     G.game.events.on('heroes', () => { if (UI.current === 'heroes' || UI.current === 'party') UI.show(UI.current); });
     G.game.events.on('quests', () => { if (UI.current === 'quests') UI.show('quests'); });
@@ -7536,7 +7623,14 @@ input[type=range] { padding: 0; }
 
     // save
     const sp = el('div', { class: 'panel' });
-    sp.appendChild(btn(t('saveNow'), () => { G.game.saveNow(); UI.toast(t('saved'), 'ok'); }, 'small'));
+    const status = el('div', { class: 'save-status' });
+    sp.appendChild(status);
+    refreshSaveStatus(status);
+    sp.appendChild(btn(t('saveNow'), () => {
+      const ok = G.game.saveNow();
+      if (ok) UI.toast(t('saved'), 'ok');
+      refreshSaveStatus(status);
+    }, 'small'));
     sp.appendChild(btn(t('exportSave'), () => {
       const str = G.save.exportString(G.game.serialize());
       const ta = el('textarea', { class: 'save-area', readonly: 'readonly' });
@@ -7587,6 +7681,25 @@ input[type=range] { padding: 0; }
 
   function row(label, node) {
     return el('div', { class: 'srow' }, [el('span', { class: 'slabel', text: label }), node]);
+  }
+
+  /** Mostra, de forma verificável, se o progresso está mesmo sendo gravado. */
+  function refreshSaveStatus(node) {
+    U.clear(node);
+    if (!G.save.available) {
+      node.className = 'save-status bad';
+      node.appendChild(el('div', { text: '⚠ ' + t('storageWarning') }));
+      return;
+    }
+    const info = G.save.lastSaveInfo();
+    node.className = 'save-status ' + (info ? 'ok' : 'warn');
+    if (info) {
+      const secs = Math.max(0, Math.round((Date.now() - info.at) / 1000));
+      node.appendChild(el('div', { text: '✔ ' + t('saveWorking') }));
+      node.appendChild(el('div', { class: 'dim', text: t('lastSave') + ': ' + (secs < 5 ? t('justNow') : U.time(secs) + ' ' + t('ago')) + ' · ' + (info.size / 1024).toFixed(1) + ' KB' }));
+    } else {
+      node.appendChild(el('div', { text: t('noSaveYet') }));
+    }
   }
 
   /* ==========================================================
@@ -7718,6 +7831,12 @@ input[type=range] { padding: 0; }
     bindKeys();
     bindWindow();
     checkScreenSize();
+
+    // Armazenamento bloqueado (aba anônima estrita): avisa de forma visível,
+    // porque nesse caso o jogador perde tudo ao fechar sem saber.
+    if (!G.save.available) {
+      setTimeout(function () { G.ui.toast(G.t('storageWarning'), 'warn'); }, 1800);
+    }
   };
   function res_delay() { return 1200; }
 
@@ -7825,7 +7944,13 @@ input[type=range] { padding: 0; }
         playRegionMusic();
       }
     });
+    // Três redes de segurança, porque nenhuma sozinha cobre todos os casos:
+    //  - beforeunload: desktop, ao fechar a aba ou navegar para fora
+    //  - pagehide: o único confiável no iOS/Safari e no bfcache do celular
+    //  - freeze: quando o navegador congela a aba para poupar bateria
     window.addEventListener('beforeunload', function () { G.game.saveNow(); });
+    window.addEventListener('pagehide', function () { G.game.saveNow(); });
+    document.addEventListener('freeze', function () { G.game.saveNow(); });
     // impede rolagem indesejada durante o jogo
     document.body.addEventListener('touchmove', function (e) {
       if (e.target.closest && e.target.closest('.scrollable, .screen, .modal-body')) return;
