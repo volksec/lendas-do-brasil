@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Lendas do Brasil — Visualizador e Exportador de Arte</title>
+<style>
+  body { background:#12101c; color:#f0e9dc; font-family:"Courier New",monospace; margin:0; padding:1rem; }
+  h1 { color:#ffd94a; font-size:1.1rem; }
+  h2 { color:#5fd08a; font-size:.9rem; margin-top:1.4rem; border-bottom:1px solid #4a3f66; padding-bottom:.2rem; }
+  canvas { image-rendering:pixelated; background:#1a1626; border:1px solid #4a3f66; margin:2px; vertical-align:top; }
+  .cell { display:inline-block; text-align:center; margin:4px; }
+  .cell small { display:block; color:#a89ec0; font-size:.6rem; max-width:110px; word-wrap:break-word; }
+  button { background:#3a2f52; color:#f0e9dc; border:1px solid #a8802a; border-radius:4px;
+           font-family:inherit; padding:.35rem .7rem; cursor:pointer; margin:.2rem; }
+  button:hover { border-color:#ffd94a; }
+  .bar { position:sticky; top:0; background:#12101c; padding:.4rem 0; border-bottom:1px solid #4a3f66; z-index:5; }
+  label { font-size:.75rem; margin-right:.8rem; }
+</style>
+</head>
+<body>
+<h1>Lendas do Brasil — Visualizador e Exportador de Arte</h1>
+<p style="font-size:.75rem;color:#a89ec0;max-width:70ch">
+  Toda a arte do jogo é gerada por código em <code>src/art.js</code>. Esta página desenha
+  cada elemento e permite baixá-lo como PNG, para servir de base caso você queira
+  substituir por arte desenhada à mão. Veja a seção “Substituindo os placeholders” do README.
+</p>
+
+<div class="bar">
+  <label>Escala <input type="range" id="scale" min="1" max="8" value="3"></label>
+  <button id="dlAll">Baixar tudo (PNG individuais)</button>
+  <button id="dlSheet">Baixar folha única</button>
+</div>
+
+<div id="out"></div>
+
+<script src="../src/util.js"></script>
+<script src="../src/localization.js"></script>
+<script src="../src/data/balance.js"></script>
+<script src="../src/data/heroes.js"></script>
+<script src="../src/data/enemies.js"></script>
+<script src="../src/data/equipment.js"></script>
+<script src="../src/data/regions.js"></script>
+<script src="../src/data/companions.js"></script>
+<script src="../src/art.js"></script>
+<script>
+(function () {
+  'use strict';
+  const G = window.LDB;
+  const out = document.getElementById('out');
+  const items = [];   // {name, canvas}
+
+  function add(section, name, cnv, scale) {
+    const wrap = document.createElement('div');
+    wrap.className = 'cell';
+    const c = document.createElement('canvas');
+    c.width = cnv.width; c.height = cnv.height;
+    c.getContext('2d').drawImage(cnv, 0, 0);
+    c.style.width = (cnv.width * (scale || 1)) + 'px';
+    c.style.height = (cnv.height * (scale || 1)) + 'px';
+    c.dataset.baseW = cnv.width;
+    wrap.appendChild(c);
+    const s = document.createElement('small');
+    s.textContent = name;
+    wrap.appendChild(s);
+    section.appendChild(wrap);
+    items.push({ name: name, canvas: c });
+  }
+
+  function heading(text) {
+    const h = document.createElement('h2');
+    h.textContent = text;
+    out.appendChild(h);
+    const sec = document.createElement('div');
+    out.appendChild(sec);
+    return sec;
+  }
+
+  // Logotipo
+  add(heading('Logotipo'), 'logo', G.art.logo(320, 128), 1);
+
+  // Heróis
+  let sec = heading('Heróis — sprite parado / sprite em ação / retrato');
+  G.heroes.forEach(function (h) {
+    add(sec, h.id + '_idle', G.art.sprite(h.art, 'idle'), 3);
+    add(sec, h.id + '_action', G.art.sprite(h.art, 'action'), 3);
+    add(sec, h.id + '_portrait', G.art.portrait(h.art, '#ffd94a'), 2);
+  });
+
+  // Inimigos
+  sec = heading('Inimigos comuns (' + G.enemiesNormal.length + ')');
+  G.enemiesNormal.forEach(function (e) { add(sec, e.id, G.art.sprite(e.art, 'idle'), 2); });
+
+  sec = heading('Elites (' + G.enemiesElite.length + ')');
+  G.enemiesElite.forEach(function (e) { add(sec, e.id, G.art.sprite(e.art, 'idle'), 2); });
+
+  sec = heading('Chefes (' + G.bosses.length + ')');
+  G.bosses.forEach(function (e) { add(sec, e.id, G.art.sprite(e.art, 'idle'), 2); });
+
+  // Companheiros
+  sec = heading('Companheiros (' + G.companions.length + ')');
+  G.companions.forEach(function (c) { add(sec, c.id, G.art.sprite(c.art, 'idle'), 2); });
+
+  // Ícones
+  sec = heading('Ícones de interface');
+  ['sword', 'helm', 'chest', 'glove', 'boot', 'amulet', 'ring', 'relic',
+   'gold', 'gem', 'essence', 'token', 'mat', 'potion', 'star', 'lock'].forEach(function (k) {
+    add(sec, k, G.art.icon(k, '#c9c9d2'), 4);
+  });
+
+  // Cenários
+  sec = heading('Cenários das regiões');
+  G.regions.forEach(function (r) { add(sec, 'bg_' + r.id, G.art.background(r.pal, 480, 270, r.weather), 1); });
+
+  // Escala interativa
+  document.getElementById('scale').addEventListener('input', function () {
+    const s = +this.value;
+    items.forEach(function (it) {
+      const bw = +it.canvas.dataset.baseW;
+      if (bw > 200) return;                 // não amplia cenários
+      it.canvas.style.width = (bw * s) + 'px';
+      it.canvas.style.height = (it.canvas.height * s) + 'px';
+    });
+  });
+
+  function download(canvas, name) {
+    const a = document.createElement('a');
+    a.download = name + '.png';
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+  }
+
+  document.getElementById('dlAll').addEventListener('click', function () {
+    if (!confirm('Isso baixará ' + items.length + ' arquivos PNG. Continuar?')) return;
+    items.forEach(function (it, i) { setTimeout(function () { download(it.canvas, it.name); }, i * 120); });
+  });
+
+  document.getElementById('dlSheet').addEventListener('click', function () {
+    const cols = 12, cell = 68;
+    const sprites = items.filter(function (i) { return +i.canvas.dataset.baseW <= 200; });
+    const rows = Math.ceil(sprites.length / cols);
+    const c = document.createElement('canvas');
+    c.width = cols * cell; c.height = rows * cell;
+    const x = c.getContext('2d');
+    x.imageSmoothingEnabled = false;
+    x.fillStyle = '#12101c'; x.fillRect(0, 0, c.width, c.height);
+    sprites.forEach(function (it, i) {
+      const px = (i % cols) * cell, py = Math.floor(i / cols) * cell;
+      x.drawImage(it.canvas, px + (cell - it.canvas.width) / 2, py + (cell - it.canvas.height) / 2);
+    });
+    download(c, 'lendas-do-brasil-spritesheet');
+  });
+
+  console.log('[visualizador] ' + items.length + ' elementos gerados');
+})();
+</script>
+</body>
+</html>

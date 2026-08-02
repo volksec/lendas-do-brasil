@@ -1,0 +1,16 @@
+# dependências
+node_modules/
+
+# artefatos do sistema
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# editores
+.vscode/
+.idea/
+*.swp
+
+# temporários
+*.log
+*.tmp
