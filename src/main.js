@@ -8,7 +8,7 @@
   const U = G.util;
   const M = (G.main = {});
 
-  let running = false, paused = false, last = 0, saveTimer = 0, hidden = false;
+  let running = false, paused = false, saveTimer = 0, hidden = false;
   let startedFresh = false;
 
   M.boot = function () {
@@ -75,33 +75,93 @@
   M.playRegionMusic = playRegionMusic;
   let lastMusicRegion = null;
 
-  /* ---------------- laço ---------------- */
+  /* ---------------- laço ----------------
+   * O tempo vem do relógio de parede, não do requestAnimationFrame.
+   * Navegadores congelam o rAF em abas ocultas ou janelas minimizadas, então
+   * um laço guiado por quadros simplesmente pararia o jogo — inaceitável num
+   * idle. Aqui o tempo decorrido vira uma dívida de simulação que é paga em
+   * passos fixos assim que a aba volta, e ausências longas caem no cálculo de
+   * recompensa offline.
+   * -------------------------------------------------------------------- */
+  const MAX_STEP = 0.1;             // passo fixo de simulação (s)
+  const MAX_STEPS_PER_FRAME = 600;  // teto de ~60 s de jogo por quadro
+  const LONG_ABSENCE = 180;         // acima disso, vira recompensa offline
+  let acc = 0;                      // segundos de simulação devidos
+  let lastWall = Date.now();
+
+  let heartbeat = null;
+
   function start() {
     if (running) return;
-    running = true; last = performance.now();
+    running = true;
+    lastWall = Date.now();
+    acc = 0;
     requestAnimationFrame(frame);
+    // Batimento independente do rAF. Em aba oculta o navegador limita este
+    // intervalo (tipicamente a 1x por segundo, ou menos), mas mesmo assim o
+    // jogo continua andando de verdade em vez de congelar até a volta.
+    if (!heartbeat) heartbeat = setInterval(function () { tick(false); }, 1000);
   }
 
-  function frame(now) {
+  /** Quadro visível: simula e desenha. */
+  function frame() {
     if (!running) return;
-    let dt = (now - last) / 1000;
-    last = now;
-    if (dt > 0.25) dt = 0.25;          // evita saltos após alt-tab
-    if (!paused && !hidden) {
-      G.game.update(dt);
-      G.render.consume(G.game.battle);
-      if (G.ui.current === 'battle') {
-        G.render.draw(G.game.battle, dt);
-        G.ui.updateHud();
-      }
-      // troca de trilha ao mudar de região
-      const stage = G.getStage(G.game.state.stage);
-      if (stage.region !== lastMusicRegion) { lastMusicRegion = stage.region; playRegionMusic(); }
-      // salvamento periódico
-      saveTimer += dt;
-      if (saveTimer > 20 && G.game.settings.autoSave) { saveTimer = 0; G.game.saveNow(); }
-    }
     requestAnimationFrame(frame);
+    tick(true);
+  }
+
+  /**
+   * Avança o jogo pelo tempo real decorrido. Chamado tanto pelo rAF quanto
+   * pelo batimento; como tudo vem do relógio de parede, chamar duas vezes no
+   * mesmo instante não conta o tempo em dobro.
+   */
+  function tick(canRender) {
+    const wall = Date.now();
+    let elapsed = (wall - lastWall) / 1000;
+    lastWall = wall;
+    if (elapsed < 0) elapsed = 0;      // relógio do sistema mexeu para trás
+
+    // Pausa explícita (Esc) não acumula tempo: é escolha do jogador.
+    if (paused) { acc = 0; return; }
+
+    if (elapsed > LONG_ABSENCE) { longAbsence(elapsed); return; }
+
+    acc += elapsed;
+    const catchingUp = acc > 2;
+    let steps = 0;
+    while (acc > 0.0005 && steps < MAX_STEPS_PER_FRAME) {
+      const dt = Math.min(acc, MAX_STEP);
+      G.game.update(dt);
+      acc -= dt;
+      steps++;
+    }
+    // Numa recuperação longa, descarta os efeitos acumulados: senão o jogador
+    // voltaria para uma avalanche de números de dano de coisas que já passaram.
+    if (catchingUp && G.game.battle) G.game.battle.fx.length = 0;
+
+    // Desenhar só faz sentido no quadro visível e na tela de batalha; o
+    // batimento apenas simula. Fora disso, descarta os efeitos pendentes.
+    if (canRender && !hidden && G.ui.current === 'battle') {
+      G.render.consume(G.game.battle);
+      G.render.draw(G.game.battle, Math.min(elapsed, 0.05));
+      G.ui.updateHud();
+    } else if (G.game.battle) {
+      G.game.battle.fx.length = 0;
+    }
+    // troca de trilha ao mudar de região
+    const stage = G.getStage(G.game.state.stage);
+    if (stage.region !== lastMusicRegion) { lastMusicRegion = stage.region; if (!hidden) playRegionMusic(); }
+    // salvamento periódico
+    saveTimer += elapsed;
+    if (saveTimer > 20 && G.game.settings.autoSave) { saveTimer = 0; G.game.saveNow(); }
+  }
+
+  /** Ausência longa: credita como progresso offline, sem simular tudo. */
+  function longAbsence(seconds) {
+    acc = 0;
+    const res = G.idle.computeOffline(seconds * 1000);
+    if (res) G.ui.showOffline(res);
+    G.game.saveNow();
   }
 
   M.togglePause = function () {
@@ -162,10 +222,11 @@
     document.addEventListener('visibilitychange', function () {
       hidden = document.hidden;
       if (hidden) {
+        // O jogo NÃO para: o tempo continua contando pelo relógio de parede e
+        // é recuperado no primeiro quadro após a volta. Só o som descansa.
         G.game.saveNow();
         G.audio.stopMusic();
       } else {
-        last = performance.now();
         playRegionMusic();
       }
     });

@@ -172,6 +172,29 @@ node build/build-single.js
 
 ---
 
+## O jogo não pausa quando você sai da aba
+
+Um idle que congela ao trocar de aba não é um idle. O laço não é guiado por
+quadros — o tempo vem do relógio do sistema:
+
+- **Aba visível**: `requestAnimationFrame`, simulação em passos fixos de 0,1 s.
+- **Aba oculta ou janela minimizada**: o navegador congela o `requestAnimationFrame`,
+  então um batimento por `setInterval` assume e o combate continua acontecendo
+  de verdade — com abates, ouro, drops e avanço de estágio.
+- **Batimento estrangulado** (o navegador reduz timers de aba oculta, às vezes a
+  1x por minuto): o tempo não se perde. Cada tique cobra a diferença do relógio
+  e simula tudo o que ficou devendo, em lotes de até 60 s por quadro.
+- **Ausência acima de 3 minutos** (máquina suspensa, aba congelada de vez): em vez
+  de simular meia hora de combate, cai no cálculo de recompensa offline e mostra
+  a tela “Bem-vindo de volta”.
+- **Pausa explícita no `Esc`**: essa sim pausa, e o tempo parado não é creditado.
+
+Verificado: 6 s com a aba oculta rendem 6 s de jogo e 3 abates; um salto de 60 s
+no relógio é recuperado por inteiro; um salto de 25 minutos vira recompensa
+offline com o resumo na tela.
+
+---
+
 ## Seu progresso não se perde
 
 O jogo grava em `localStorage` e o salvamento tem várias redes de segurança:
@@ -263,9 +286,10 @@ secundários sorteados, aprimoramento, reforja, elevação de raridade,
 desmontagem, sistema de pity para itens raros.
 
 **Ociosidade**: o grupo luta sozinho, com avanço automático, modo repetição para
-farmar e recuo automático quando apanha demais. Uma expedição paralela acumula
-recursos enquanto você joga, e o progresso offline continua enquanto o jogo está
-fechado — até 24 horas, dependendo das melhorias.
+farmar e recuo automático quando apanha demais. **Trocar de aba ou minimizar não
+pausa o jogo** — o tempo é medido pelo relógio e o combate continua. Uma expedição
+paralela acumula recursos enquanto você joga, e o progresso offline continua
+enquanto o jogo está fechado — até 24 horas, dependendo das melhorias.
 
 **Renascimento da Lenda**: ao alcançar o estágio 36 você pode recomeçar,
 convertendo o progresso em **Essência Lendária** e comprando bônus permanentes.
